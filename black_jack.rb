@@ -21,16 +21,12 @@ class Card
     return @value
   end
 end
-class Dealer
-  def initialize
-    @dealer_hand = (1 + rand(9))
-    @dealer_type = $cards[@dealer_hand]
+class Hand
+  def initialize(card)
+    @value = card
   end
-  def hand
-    return @dealer_hand
-  end
-  def type
-    return @dealer_type
+  def value
+    return @value
   end
 end
 
@@ -44,8 +40,9 @@ a = gets.chomp
 
 if a == "1"
   first_card = Card.new
-  dealer_card = Dealer.new
-  @hand += first_card.value
+  dealer_card = Card.new
+  hand = Hand.new(first_card.value)
+  dealer_hand = Hand.new(dealer_card)
   @card_count += 1
   puts "Your first card is the #{first_card.type} of #{suits.sample}."
   puts "The dealer has the #{dealer_card.type} of #{suits.sample} showing."
@@ -58,7 +55,7 @@ end
 
 #Second Card and beyond
 while @hand < 21 && @end != true
-puts "You have #{@card_count} card(s) totaling #{@hand}
+puts "You have #{@card_count} card(s) totaling #{hand.value}
       Enter \'1\' to hit
       Enter \'2\' to stand"
 print ">"
@@ -78,9 +75,9 @@ else
   nil
 end
 
-puts @dealer_hand
 end
 puts "You have #{@card_count} cards with a total of #{@hand}"
+puts "Dealer had #{dealer_hand.value}"
 if @hand == 21
   puts "Congratulations, you got 21!"
 else
