@@ -43,9 +43,9 @@ class Game
     when "quit"
       quit
     when "hit"
-      game_action("new")
+      @card_count > 0 && @dealer_hand < 11 ? game_action("new") : nil
     when "stand"
-      @hand < 21 ? game_over : nil
+      @hand < 21 && @card_count > 0 ? game_over : nil
     when "new game"
       @hand = 0
       @card_count = 0
@@ -78,8 +78,7 @@ class Game
         @hand += next_card.value
         @card_count += 1
       end
-    @hand == 21 ? game_over : nil
-    @hand > 21 ? game_over : decision
+    @hand >= 21 ? game_over : decision
   end
 
   def win
@@ -90,6 +89,10 @@ class Game
   def lose
     output_game_header("You lost. Better luck next time!",
     "You had #{@hand}", "The dealer had #{@dealer_hand}")
+  end
+
+  def push
+    output_game_header("Push!", "You had #{@hand}", "The dealer had #{@dealer_hand}")
   end
 
   def quit
@@ -109,16 +112,21 @@ class Game
   end
 
   def game_over
-    puts @dealer_hand
+    until @dealer_hand >= 17
     @dealer_hand += (1 + rand(9))
+    end
     if @hand == 21 && @dealer_hand != 21
       win
     elsif @hand > 21
       lose
+    elsif @dealer_hand > 21
+      win
     elsif @hand > @dealer_hand
       win
+    elsif @hand < @dealer_hand
+      lose
     else
-      nil
+      push
     end
     new_game
   end
@@ -127,18 +135,6 @@ class Game
     output_game_header("Would you like to play again?","Enter \'new game\' to restart")
   end
 
-  def get_hand
-    return @hand
-  end
-  def get_card_count
-    return @card_count
-  end
-  def get_dealer_hand
-    return @dealer_hand
-  end
-  def get_cash
-    return @cash
-  end
   def output_game_header(text, *more)
     print ">" * 60
     puts "\n\n#{text.center(60)}\n"
@@ -147,6 +143,7 @@ class Game
     end
     print "\n" + "<" * 60 + "\n"
   end
+
   def intro
     print ">" * 60 +"\n\n\n"
     puts "Welcome to Blackjack:".center(60)
