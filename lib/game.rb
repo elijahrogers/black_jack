@@ -4,7 +4,7 @@ require 'card'
 #Classes
 class Game
   class Config
-    @@actions = ['new', 'quit', 'hit', 'stand', 'new game']
+    @@actions = ['new', 'quit', 'hit', 'stand', 'new game', 'bet']
     def self.actions
       return @@actions
     end
@@ -50,8 +50,20 @@ class Game
       @hand = 0
       @card_count = 0
       @dealer_hand = 0
+      @bet = 0
       game_action("new")
+    when "bet"
+      bet
     end
+  end
+
+  def bet
+    output_game_header("Please enter a bet:","You currently have $#{@cash}","The table minimum is $5")
+    answer = 0
+    until answer.between?(5, 10000)
+      answer = gets.to_i
+    end
+    @bet = answer.to_i
   end
 
   def decision
@@ -60,6 +72,7 @@ class Game
   end
 
   def new
+      @card_count == 0 ? bet : nil
       case @card_count
       when 0
         first_card = Card.new
@@ -83,12 +96,13 @@ class Game
 
   def win
     output_game_header("Congratulations! You Won!",
-    "You had #{@hand}", "The dealer had #{@dealer_hand}")
+    "You had #{@hand}", "The dealer had #{@dealer_hand}", "You bet $#{@bet}, and you won $#{@payout}")
   end
 
   def lose
     output_game_header("You lost. Better luck next time!",
-    "You had #{@hand}", "The dealer had #{@dealer_hand}")
+    "You had #{@hand}", "The dealer had #{@dealer_hand}","You bet $#{@bet}, and you lost $#{@payout}")
+    @cash <= 0 ? over : nil
   end
 
   def push
@@ -111,19 +125,34 @@ class Game
     end
   end
 
+  def over
+    output_game_header("Looks like you ran out of cash!", "Game over")
+    return :quit
+  end
+
   def game_over
     until @dealer_hand >= 17
     @dealer_hand += (1 + rand(9))
     end
     if @hand == 21 && @dealer_hand != 21
+      @payout = (@bet * 1.5).to_i
+      @cash += @payout
       win
     elsif @hand > 21
+      @payout = @bet
+      @cash -= @payout
       lose
     elsif @dealer_hand > 21
+      @payout = @bet
+      @cash += @payout
       win
     elsif @hand > @dealer_hand
+      @payout = @bet
+      @cash += @payout
       win
     elsif @hand < @dealer_hand
+      @payout = @bet
+      @cash -= @payout
       lose
     else
       push
