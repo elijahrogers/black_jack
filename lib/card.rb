@@ -28,24 +28,33 @@ class Card
     return @suit
   end
 
-#   def output_card(type, suit)
-#     type = outputs_types[type]
-#     suit = suits_symbols[suit]
-#     print "
-#
-# ┌─────────┐
-# │#{type}       │
-# │         │
-# │         │
-# │    #{suit}    │
-# │         │
-# │         │
-# │       #{type}│
-# └─────────┘
-#
-#
-#     "
-#   end
+  def output_card
+    type = @@outputs_types[self.type]
+    suit = @@suits_symbols[0][self.suit]
+      if self.type == 'Ten'
+        card = ["┌─────────┐",
+                "│ #{type}      │",
+                "│         │",
+                "│         │",
+                "│    #{suit}    │",
+                "│         │",
+                "│         │",
+                "│      #{type} │",
+                "└─────────┘"]
+      else
+        card = ["┌─────────┐",
+                "│ #{type}       │",
+                "│         │",
+                "│         │",
+                "│    #{suit}    │",
+                "│         │",
+                "│         │",
+                "│       #{type} │",
+                "└─────────┘"]
+    end
+    return card
+  end
+
     # print "░░░░░░░░"
 
 end

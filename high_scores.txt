@@ -1,6 +1,5 @@
 elijah rogers	9000
 craig	9900
-tom collins	10300
 slick rick	11000
 jack black	13000
 adam sandler	6000
@@ -9,5 +8,5 @@ charlie day	10200
 dennis reynolds	10200
 travis scott	16010
 scott mescudi	10000
-ed	20023
 james bond	10450
+aa	9839

@@ -1,5 +1,6 @@
 require 'card'
 require 'score'
+require 'hand'
 
 class String
   def capitalize_each
@@ -14,28 +15,32 @@ class Game
     def self.actions
       return @@actions
     end
+
+    def self.winsize
+      require 'io/console'
+      IO.console.winsize
+    end
   end
 
   def initialize(path=nil)
+    @winsize = Config.winsize[1]
     Score.filepath = path
     Score.file_usable? ? nil : Score.create_file
-    @hand = 0
-    @card_count = 0
     @dealer_hand = 0
     @cash = 10000
     @name = nil
     @payout = 0
+    @hand = nil
   end
 
   def launch!
-    intro_animation
+    logo_text
     intro
     result = nil
     until result == :quit
       action = get_action
       result = game_action(action)
     end
-
   end
 
   def get_action
@@ -48,33 +53,44 @@ class Game
   end
 
   def game_action(action)
-    case action
-    when "new"
-      @hand < 21 && @payout = 0 ? new : nil
-    when "quit"
-      quit
-    when "hit"
-      @card_count > 0 && @dealer_hand < 11 ? game_action("new") : nil
-    when "stand"
-      if @payout == nil
-        @hand < 21 && @card_count > 0 ? game_over : nil
-      else
-        nil
+    if @hand == nil
+      case action
+      when "new"
+        new
+      when "quit"
+        quit
+      when "high scores"
+        scores = Score.high_scores
+        output_high_scores(scores)
       end
-    when "again"
-      if @card_count == 0
-        nil
-      else
-      @hand = 0
-      @card_count = 0
-      @dealer_hand = 0
-      @bet = 0
-      @payout = 0
-      game_action("new")
-    end
-    when "high scores"
-      scores = Score.high_scores
-      output_high_scores(scores)
+    elsif @hand != nil && @hand.is_over?
+        case action
+        when "again"
+          @payout != 0
+          @dealer_hand = 0
+          @bet = 0
+          @payout = 0
+          @hand = nil
+          @game_over = false
+          new
+        when "high scores"
+          scores = Score.high_scores
+          output_high_scores(scores)
+        when "quit"
+          quit
+        end
+    else
+      case action
+      when "quit"
+        quit
+      when "hit"
+        new
+      when "stand"
+        game_over
+      when "high scores"
+        scores = Score.high_scores
+        output_high_scores(scores)
+      end
     end
   end
 
@@ -94,7 +110,7 @@ class Game
   end
 
   def decision
-      output_game_header("You have #{@card_count} cards totaling #{@hand}.",
+      output_game_header("You have #{@hand.card_count} cards totaling #{@hand.value}.",
       "Enter \'hit\' to hit", "Enter \'stand\' to stand")
   end
 
@@ -109,41 +125,36 @@ class Game
 
   def new
       @name == nil ? get_name : nil
-      case @card_count
-      when 0
+      if @hand == nil
         bet
-        first_card = Card.new
-        second_card = Card.new
+        @hand = Hand.new
+        output_cards(@hand.cards)
         dealer_card = Card.new
         @dealer_hand = dealer_card.value
-        output_game_header("Your first card is the #{first_card.type} of #{first_card.suit}.",
-        "Your second card is the #{second_card.type} of #{second_card.suit} ",
+        output_game_header("Your first card is the #{@hand.cards[0].type} of #{@hand.cards[0].suit}.",
+        "Your second card is the #{@hand.cards[1].type} of #{@hand.cards[1].suit} ",
         "The dealer has the #{dealer_card.type} of #{dealer_card.suit} showing.")
-        @hand = first_card.value
-        @hand += second_card.value
-        @card_count += 2
       else
-        next_card = Card.new
-        output_game_header("Your new card is the #{next_card.type} of #{next_card.suit}.")
-        @hand += next_card.value
-        @card_count += 1
+        @hand.new_card
+        output_cards(@hand.cards)
+        output_game_header("Your new card is the #{@hand.cards[-1].type} of #{@hand.cards[-1].suit}.")
       end
-    @hand >= 21 ? game_over : decision
+    @hand.value >= 21 ? game_over : decision
   end
 
   def win
     output_game_header("Congratulations #{@name.capitalize_each}! You Won!",
-    "You had #{@hand}", "The dealer had #{@dealer_hand}", "You bet $#{@bet}, and you won $#{@payout}")
+    "You had #{@hand.value}", "The dealer had #{@dealer_hand}", "You bet $#{@bet}, and you won $#{@payout}")
   end
 
   def lose
     output_game_header("You lost. Better luck next time #{@name.capitalize_each}!",
-    "You had #{@hand}", "The dealer had #{@dealer_hand}","You bet $#{@bet}, and you lost $#{@payout}")
+    "You had #{@hand.value}", "The dealer had #{@dealer_hand}","You bet $#{@bet}, and you lost $#{@payout}")
     @cash <= 0 ? game_over : nil
   end
 
   def push
-    output_game_header("Push!", "You had #{@hand}", "The dealer had #{@dealer_hand}")
+    output_game_header("Push!", "You had #{@hand.value}", "The dealer had #{@dealer_hand}")
   end
 
   def quit
@@ -163,7 +174,12 @@ class Game
         end
         exit!
       elsif answer == "no"
-        @card_count == 0 ? intro : decision
+        if @hand == nil && @name == nil
+          intro
+        else
+          @hand == nil ? bet : nil
+          !@hand.is_over? ? decision : new_game
+        end
       else
         output_game_header("I'm sorry, I don't understand that command.","Enter \'yes\' to quit","Enter \'no\' to continue")
       end
@@ -171,22 +187,21 @@ class Game
   end
 
   def game_over
-
+    @hand.over
     if @cash <= 0
       output_game_header("Looks like you ran out of cash!", "Game over")
       exit!
     else
       nil
     end
-
     until @dealer_hand >= 17
       @dealer_hand += (1 + rand(9))
     end
-    if @hand == 21 && @dealer_hand != 21
+    if @hand.value == 21 && @dealer_hand != 21
       @payout = (@bet * 1.5).to_i
       @cash += @payout
       win
-    elsif @hand > 21
+    elsif @hand.value > 21
       @payout = @bet
       @cash -= @payout
       lose
@@ -194,11 +209,11 @@ class Game
       @payout = @bet
       @cash += @payout
       win
-    elsif @hand > @dealer_hand
+    elsif @hand.value > @dealer_hand
       @payout = @bet
       @cash += @payout
       win
-    elsif @hand < @dealer_hand
+    elsif @hand.value < @dealer_hand
       @payout = @bet
       @cash -= @payout
       lose
@@ -213,20 +228,38 @@ class Game
   end
 
   def output_game_header(text, *more)
-    print ">" * 90
-    puts "\n\n#{text.center(90)}\n"
+    print ">" * @winsize
+    puts "\n\n#{text.center(@winsize)}\n"
     more.each do |txt|
-      puts "\n#{txt.center(90)}\n"
+      puts "\n#{txt.center(@winsize)}\n"
     end
-    print "\n" + "<" * 90 + "\n"
+    print "\n" + "<" * @winsize + "\n"
+  end
+
+  def output_cards(cards)
+    print ">" * @winsize
+    hand = ""
+      @i = 0
+      while @i < 9
+        n = cards.size * 11
+        hand << " " * ((@winsize - n) / 2)
+        cards.each do |c|
+        hand << c.output_card[@i]
+        hand << " "
+        end
+        hand << "\n"
+        @i += 1
+      end
+    print hand
+    print "\n" + "<" * @winsize + "\n"
   end
 
   def output_high_scores(high_scores=[])
-    print ">" * 90 + "\n\n"
-    print "Top 10 Blackjack Scores:".center(90) +"\n\n"
+    print ">" * @winsize + "\n\n"
+    print "Top 10 Blackjack Scores:".center(@winsize) +"\n\n"
     print "   " + "Name:".ljust(40)
     print " " + "Winnings:\n"
-    print "." * 90 + "\n\n"
+    print "." * @winsize + "\n\n"
     pos = 1
     high_scores.first(10).each do |score|
       line = "#{pos}."
@@ -237,32 +270,38 @@ class Game
       pos += 1
       puts line
     end
-    print "\n" + "<" * 90 + "\n"
+    print "\n" + "<" * @winsize + "\n"
   end
 
   def intro
-    print ">" * 90 +"\n\n\n"
-    puts "Welcome to Blackjack:".center(90) + "\n\n"
-    puts "Enter \'new\' to start a new game".center(90) + "\n\n" +  "Enter \'high scores\' to see high scores".center(90) + "\n\n" + "Enter \'quit\' to quit".center(90) + "\n\n\n"
-    print "<" * 90 +"\n\n"
+    print ">" * @winsize +"\n\n\n"
+    puts "Welcome to Blackjack:".center(@winsize) + "\n\n"
+    puts "Enter \'new\' to start a new game".center(@winsize) + "\n\n" +  "Enter \'high scores\' to see high scores".center(@winsize) + "\n\n" + "Enter \'quit\' to quit".center(@winsize) + "\n\n\n"
+    print "<" * @winsize +"\n\n"
   end
 
   def outro
     output_game_header("Thanks for playing Blackjack!", "Goodbye!")
   end
 
-  def intro_animation
+  def logo_text
     print "\n\n\n"
-    print '
- /$$$$$$$  /$$                     /$$                /$$$$$                    /$$
-| $$__  $$| $$                    | $$               |__  $$                   | $$
-| $$  \ $$| $$  /$$$$$$   /$$$$$$$| $$   /$$            | $$ /$$$$$$   /$$$$$$$| $$   /$$
-| $$$$$$$ | $$ |____  $$ /$$_____/| $$  /$$/            | $$|____  $$ /$$_____/| $$  /$$/
-| $$__  $$| $$  /$$$$$$$| $$      | $$$$$$/        /$$  | $$ /$$$$$$$| $$      | $$$$$$/
-| $$  \ $$| $$ /$$__  $$| $$      | $$_  $$       | $$  | $$/$$__  $$| $$      | $$_  $$
-| $$$$$$$/| $$|  $$$$$$$|  $$$$$$$| $$ \  $$      |  $$$$$$/  $$$$$$$|  $$$$$$$| $$ \  $$
-|_______/ |__/ \_______/ \_______/|__/  \__/       \______/ \_______/ \_______/|__/  \__/
-'
+    text = '
+     /$$$$$$$  /$$                     /$$                /$$$$$                    /$$
+    | $$__  $$| $$                    | $$               |__  $$                   | $$
+    | $$  \ $$| $$  /$$$$$$   /$$$$$$$| $$   /$$            | $$ /$$$$$$   /$$$$$$$| $$   /$$
+    | $$$$$$$ | $$ |____  $$ /$$_____/| $$  /$$/            | $$|____  $$ /$$_____/| $$  /$$/
+    | $$__  $$| $$  /$$$$$$$| $$      | $$$$$$/        /$$  | $$ /$$$$$$$| $$      | $$$$$$/
+    | $$  \ $$| $$ /$$__  $$| $$      | $$_  $$       | $$  | $$/$$__  $$| $$      | $$_  $$
+    | $$$$$$$/| $$|  $$$$$$$|  $$$$$$$| $$ \  $$      |  $$$$$$/  $$$$$$$|  $$$$$$$| $$ \  $$
+    |_______/ |__/ \_______/ \_______/|__/  \__/       \______/ \_______/ \_______/|__/  \__/
+    '
+    line = ""
+    text.each_line do |l|
+    line << " " * ((@winsize - 90) / 2)
+    line << l
+    end
+    print line
     print "\n\n\n"
   end
 
