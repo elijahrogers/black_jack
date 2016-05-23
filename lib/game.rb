@@ -9,7 +9,7 @@ class String
 end
 
 class Game
-
+#user inputs
   class Config
     @@actions = ['new', 'quit', 'hit', 'stand', 'again', 'high scores']
     def self.actions
@@ -48,7 +48,7 @@ class Game
     until Game::Config.actions.include?(action)
       print "> "
       action = gets.downcase.chomp
-      end
+    end
     return action
   end
 
@@ -95,16 +95,13 @@ class Game
   end
 
   def bet
-    if @cash == 10000
-      output_game_header("Please enter a bet:","You currently have $10000","The table minimum is $5")
-    else
-      output_game_header("Please enter a bet:","You currently have $#{@cash}","The table minimum is $5")
-    end
+    output_game_header("Please enter a bet:","You currently have $#{@cash}","The table minimum is $5")
     answer = 0
-    until answer.between?(5, @cash) || answer == "quit"
+    until answer.between?(5, @cash)
       print ">"
       answer = gets.chomp
-      answer == "quit" ? quit : answer = answer.to_i
+      answer == "quit"? quit : nil
+      answer = answer.to_i
     end
     @bet = answer.to_i
   end
@@ -124,21 +121,31 @@ class Game
   end
 
   def new
-      @name == nil ? get_name : nil
-      if @hand == nil
-        bet
-        @hand = Hand.new
-        output_cards(@hand.cards)
-        dealer_card = Card.new
-        @dealer_hand = dealer_card.value
-        output_game_header("Your first card is the #{@hand.cards[0].type} of #{@hand.cards[0].suit}.",
-        "Your second card is the #{@hand.cards[1].type} of #{@hand.cards[1].suit} ",
-        "The dealer has the #{dealer_card.type} of #{dealer_card.suit} showing.")
-      else
-        @hand.new_card
-        output_cards(@hand.cards)
-        output_game_header("Your new card is the #{@hand.cards[-1].type} of #{@hand.cards[-1].suit}.")
-      end
+    @name == nil ? get_name : nil
+    if @hand == nil
+      bet
+      @hand = Hand.new
+      output_cards(@hand.cards)
+      dealer_card = Card.new
+      @dealer_hand = dealer_card.value
+      output_game_header("Your first card is the #{@hand.cards[0].type} of #{@hand.cards[0].suit}.",
+      "Your second card is the #{@hand.cards[1].type} of #{@hand.cards[1].suit} ",
+      "The dealer has the #{dealer_card.type} of #{dealer_card.suit} showing.")
+    else
+      @hand.new_card
+      output_cards(@hand.cards)
+      output_game_header("Your new card is the #{@hand.cards[-1].type} of #{@hand.cards[-1].suit}.")
+        if @hand.cards[-1].type == 'Ace' && @hand.value > 21
+          @hand.cards[-1].value = 1
+        elsif @hand.cards.any? {|card| card.type == 'Ace'} && @hand.value > 21
+          aces = @hand.cards.find_all {|card| card.type == 'Ace'}
+          aces.each {|card| card.value = 1}
+        else
+          nil
+        end
+      @hand.update
+    end
+
     @hand.value >= 21 ? game_over : decision
   end
 
@@ -176,8 +183,9 @@ class Game
       elsif answer == "no"
         if @hand == nil && @name == nil
           intro
+        elsif @hand == nil
+          bet
         else
-          @hand == nil ? bet : nil
           !@hand.is_over? ? decision : new_game
         end
       else

@@ -46,7 +46,7 @@ class Score
   end
 
   def self.score_exists?(name)
-    names = self.high_scores.to_s
+    names = Score.high_scores.to_s
     names.include?(name) ? true : false
   end
 

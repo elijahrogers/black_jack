@@ -1,6 +1,7 @@
 require 'card'
 class Hand
 
+  attr_reader :value, :cards, :card_count
   def initialize
     @first_card = Card.new
     @second_card = Card.new
@@ -11,24 +12,19 @@ class Hand
     @over = false
   end
 
-  def value
-    return @value
-  end
-
-  def cards
-    return @cards
-  end
-
-  def card_count
-    return @card_count
-  end
-
   def is_over?
-    return @over
+    @over
   end
 
   def over
     @over = true
+  end
+
+  def update
+    @value = 0
+    @cards.each do |card|
+      @value += card.value
+    end
   end
 
   def new_card
